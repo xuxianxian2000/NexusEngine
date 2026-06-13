@@ -106,8 +106,10 @@ private:
 
     Vec2 screen_size_{1280.0f, 720.0f};
     Vec2 mouse_pos_{0.0f};
-    Widget* hovered_widget_{nullptr};
-    Widget* pressed_widget_{nullptr};
+    // weak_ptr so a widget removed/freed from the tree between mouse events does
+    // not leave these dangling; lock() before use to keep it alive during dispatch.
+    std::weak_ptr<Widget> hovered_widget_;
+    std::weak_ptr<Widget> pressed_widget_;
 
     BitmapFont* font_{nullptr};
     TextureHandle font_atlas_{UI_INVALID_HANDLE};

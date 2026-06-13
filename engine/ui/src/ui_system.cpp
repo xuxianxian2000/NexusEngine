@@ -99,18 +99,20 @@ void UISystem::process_mouse_move(Vec2 position) {
     mouse_pos_ = position;
 
     Widget* new_hovered = hit_test(position);
+    auto prev_hovered_sp = hovered_widget_.lock();
+    Widget* prev_hovered = prev_hovered_sp.get();
 
     // Mouse leave old widget
-    if (hovered_widget_ && hovered_widget_ != new_hovered) {
-        hovered_widget_->hovered = false;
+    if (prev_hovered && prev_hovered != new_hovered) {
+        prev_hovered->hovered = false;
         UIEvent leave;
         leave.type = UIEventType::MouseLeave;
         leave.mouse_position = position;
-        hovered_widget_->dispatch_event(leave);
+        prev_hovered->dispatch_event(leave);
     }
 
     // Mouse enter new widget
-    if (new_hovered && new_hovered != hovered_widget_) {
+    if (new_hovered && new_hovered != prev_hovered) {
         new_hovered->hovered = true;
         UIEvent enter;
         enter.type = UIEventType::MouseEnter;
@@ -118,22 +120,22 @@ void UISystem::process_mouse_move(Vec2 position) {
         new_hovered->dispatch_event(enter);
     }
 
-    hovered_widget_ = new_hovered;
+    hovered_widget_ = new_hovered ? new_hovered->weak_from_this() : std::weak_ptr<Widget>{};
 
-    // Drag
-    if (pressed_widget_) {
+    // Drag (keep the widget alive for the duration of dispatch)
+    if (auto pressed = pressed_widget_.lock()) {
         UIEvent drag;
         drag.type = UIEventType::DragMove;
         drag.mouse_position = position;
         drag.mouse_delta = delta;
-        pressed_widget_->dispatch_event(drag);
+        pressed->dispatch_event(drag);
     }
 }
 
 void UISystem::process_mouse_button(bool down) {
     if (down) {
         Widget* target = hit_test(mouse_pos_);
-        pressed_widget_ = target;
+        pressed_widget_ = target ? target->weak_from_this() : std::weak_ptr<Widget>{};
 
         if (target) {
             target->pressed = true;
@@ -150,24 +152,25 @@ void UISystem::process_mouse_button(bool down) {
             focus_nav_.clear();
         }
     } else {
-        if (pressed_widget_) {
-            pressed_widget_->pressed = false;
+        // Lock to keep the widget alive even if a handler removes it from the tree.
+        if (auto pressed = pressed_widget_.lock()) {
+            pressed->pressed = false;
 
             UIEvent up;
             up.type = UIEventType::MouseUp;
             up.mouse_position = mouse_pos_;
-            pressed_widget_->dispatch_event(up);
+            pressed->dispatch_event(up);
 
             // Click if released on same widget
             Widget* release_target = hit_test(mouse_pos_);
-            if (release_target == pressed_widget_) {
+            if (release_target == pressed.get()) {
                 UIEvent click;
                 click.type = UIEventType::Click;
                 click.mouse_position = mouse_pos_;
-                pressed_widget_->dispatch_event(click);
+                pressed->dispatch_event(click);
             }
 
-            pressed_widget_ = nullptr;
+            pressed_widget_.reset();
         }
     }
 }
