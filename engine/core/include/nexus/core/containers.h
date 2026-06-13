@@ -6,6 +6,7 @@
 #include <iterator>
 #include <limits>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 namespace nexus {
@@ -162,20 +163,21 @@ public:
     SparseSet() = default;
 
     void add(u32 entity, T component) {
-        if (has(entity)) {
-            dense_components_[sparse_[entity]] = std::move(component);
+        auto it = sparse_.find(entity);
+        if (it != sparse_.end()) {
+            dense_components_[it->second] = std::move(component);
             return;
         }
-        ensure_sparse_(entity);
         sparse_[entity] = static_cast<u32>(dense_entities_.size());
         dense_entities_.push_back(entity);
         dense_components_.push_back(std::move(component));
     }
 
     void remove(u32 entity) {
-        if (!has(entity)) return;
+        auto it = sparse_.find(entity);
+        if (it == sparse_.end()) return;
 
-        u32 removed_dense = sparse_[entity];
+        u32 removed_dense = it->second;
         u32 last_entity   = dense_entities_.back();
 
         // Swap-and-pop
@@ -185,24 +187,24 @@ public:
 
         dense_entities_.pop_back();
         dense_components_.pop_back();
-        sparse_[entity] = null_index_;
+        sparse_.erase(entity);
     }
 
     bool has(u32 entity) const {
-        return entity < sparse_.size()
-            && sparse_[entity] != null_index_
-            && sparse_[entity] < dense_entities_.size()
-            && dense_entities_[sparse_[entity]] == entity;
+        auto it = sparse_.find(entity);
+        return it != sparse_.end()
+            && it->second < dense_entities_.size()
+            && dense_entities_[it->second] == entity;
     }
 
     T& get(u32 entity) {
         NEXUS_ASSERT(has(entity), "SparseSet::get - entity not found");
-        return dense_components_[sparse_[entity]];
+        return dense_components_[sparse_.at(entity)];
     }
 
     const T& get(u32 entity) const {
         NEXUS_ASSERT(has(entity), "SparseSet::get - entity not found");
-        return dense_components_[sparse_[entity]];
+        return dense_components_[sparse_.at(entity)];
     }
 
     std::size_t size() const { return dense_entities_.size(); }
@@ -212,16 +214,13 @@ public:
     const std::vector<T>&   components() const { return dense_components_; }
 
 private:
-    void ensure_sparse_(u32 entity) {
-        if (entity >= sparse_.size())
-            sparse_.resize(static_cast<std::size_t>(entity) + 1, null_index_);
-    }
-
-    static constexpr u32 null_index_ = std::numeric_limits<u32>::max();
-
-    std::vector<u32> sparse_;
-    std::vector<u32> dense_entities_;
-    std::vector<T>   dense_components_;
+    // Keyed by entity handle. Using a hash map (rather than a flat vector indexed
+    // by the handle) keeps memory proportional to the number of live entities;
+    // a flat vector grew to the maximum handle value, which balloons once
+    // generational handle reuse pushes handle values into the millions.
+    std::unordered_map<u32, u32> sparse_;
+    std::vector<u32>             dense_entities_;
+    std::vector<T>               dense_components_;
 };
 
 // ---------------------------------------------------------------------------

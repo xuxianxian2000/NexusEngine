@@ -93,6 +93,10 @@ float BinarySceneSerializer::ReadCursor::read_f32() {
 
 std::string BinarySceneSerializer::ReadCursor::read_string() {
     u16 len = read_u16();
+    if (!can_read(len)) {
+        pos = size; // mark exhausted; refuse to read past the buffer
+        return {};
+    }
     std::string s(reinterpret_cast<const char*>(&data[pos]), len);
     pos += len;
     return s;

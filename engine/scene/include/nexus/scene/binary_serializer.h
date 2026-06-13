@@ -103,7 +103,9 @@ private:
         u32 size;
         u32 pos{0};
 
-        bool can_read(u32 bytes) const { return pos + bytes <= size; }
+        // Written as `bytes <= size - pos` to avoid the pos+bytes overflow that
+        // a corrupt length field could exploit to pass the bounds check.
+        bool can_read(u32 bytes) const { return pos <= size && bytes <= size - pos; }
         u8 read_u8();
         u16 read_u16();
         u32 read_u32();

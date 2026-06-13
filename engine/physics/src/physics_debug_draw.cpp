@@ -74,11 +74,16 @@ void PhysicsDebugDraw::draw_contacts(const PhysicsWorld3D& world) const {
 
 void PhysicsDebugDraw::draw_joints(const PhysicsWorld3D& world) const {
     for (const auto& joint : world.joints()) {
-        if (!joint->enabled || !joint->body_a || !joint->body_b) continue;
+        if (!joint->enabled) continue;
 
-        Vec3 pa = joint->body_a->position;
-        Vec3 pb = joint->body_b->position;
-        renderer_.draw_line(pa, pb, joint_color);
+        // Resolve bodies by id rather than the cached raw pointers, which are
+        // only refreshed inside step() and dangle after any create/destroy_body
+        // reallocates the body storage.
+        const Body3D* a = world.get_body(joint->body_a_id);
+        const Body3D* b = world.get_body(joint->body_b_id);
+        if (!a || !b) continue;
+
+        renderer_.draw_line(a->position, b->position, joint_color);
     }
 }
 

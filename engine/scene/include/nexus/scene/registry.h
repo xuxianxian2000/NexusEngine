@@ -30,6 +30,11 @@ public:
             index = free_list_.back();
             free_list_.pop_back();
         } else {
+            // Refuse to hand out an index that won't fit the 20-bit field;
+            // make_entity would otherwise mask it and alias an existing entity.
+            if (next_index_ > ENTITY_INDEX_MASK) {
+                return INVALID_ENTITY;
+            }
             index = next_index_++;
             if (index >= generations_.size()) {
                 generations_.resize(index + 1, 0);
