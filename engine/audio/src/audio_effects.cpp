@@ -87,8 +87,11 @@ static constexpr u32 ALLPASS_DELAYS_L[2] = { 556, 441 };
 static constexpr u32 ALLPASS_DELAYS_R[2] = { 579, 464 }; // offset +23
 
 static u32 scale_delay(u32 base_delay, u32 sample_rate) {
-    return static_cast<u32>(static_cast<float>(base_delay) *
-                            static_cast<float>(sample_rate) / 44100.0f);
+    u32 scaled = static_cast<u32>(static_cast<float>(base_delay) *
+                                  static_cast<float>(sample_rate) / 44100.0f);
+    // Never return 0: the comb/allpass buffers index buffer[index] and an empty
+    // buffer would be an out-of-bounds access at very low sample rates.
+    return scaled > 0 ? scaled : 1;
 }
 
 // ── CombFilter ──────────────────────────────────────────────────────────────

@@ -23,6 +23,9 @@ AudioClipId AudioEngine::load_clip(const std::string& name, const std::string& f
 }
 
 AudioClipId AudioEngine::load_clip_from_buffer(const std::string& name, AudioBuffer buffer) {
+    // clips_ is read by mix() on the audio thread; guard mutations so the
+    // vector reallocation can't dangle a clip pointer mid-mix.
+    std::lock_guard<std::mutex> lock(mutex_);
     AudioClipId id = next_clip_id_++;
     clips_.push_back({id, name, std::move(buffer)});
     clip_name_map_[name] = id;
@@ -45,6 +48,7 @@ const AudioClip* AudioEngine::get_clip_by_name(const std::string& name) const {
 }
 
 void AudioEngine::unload_clip(AudioClipId id) {
+    std::lock_guard<std::mutex> lock(mutex_);
     // Stop all voices using this clip
     for (auto& v : voices_) {
         if (v.clip_id == id) v.finished = true;
@@ -63,6 +67,9 @@ void AudioEngine::unload_clip(AudioClipId id) {
 
 VoiceId AudioEngine::play(AudioClipId clip, float volume, float pitch,
                            bool looping, u32 bus) {
+    // Validate and enqueue under the lock: get_clip() reads clips_, which the
+    // audio thread mutates, and a concurrent unload must not race the lookup.
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!get_clip(clip)) return INVALID_VOICE_ID;
 
     Voice v;
@@ -73,7 +80,6 @@ VoiceId AudioEngine::play(AudioClipId clip, float volume, float pitch,
     v.looping = looping;
     v.bus_index = bus;
 
-    std::lock_guard<std::mutex> lock(mutex_);
     voices_.push_back(v);
     return v.id;
 }
@@ -81,6 +87,7 @@ VoiceId AudioEngine::play(AudioClipId clip, float volume, float pitch,
 VoiceId AudioEngine::play_spatial(AudioClipId clip, Vec3 position, float volume,
                                    float min_dist, float max_dist,
                                    bool looping, u32 bus) {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!get_clip(clip)) return INVALID_VOICE_ID;
 
     Voice v;
@@ -94,7 +101,6 @@ VoiceId AudioEngine::play_spatial(AudioClipId clip, Vec3 position, float volume,
     v.max_distance = max_dist;
     v.bus_index = bus;
 
-    std::lock_guard<std::mutex> lock(mutex_);
     voices_.push_back(v);
     return v.id;
 }

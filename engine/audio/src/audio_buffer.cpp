@@ -338,6 +338,13 @@ static bool parse_codebook(BitReaderVorbis& br, VorbisCodebook& cb) {
     cb.dimensions = br.read_bits(16);
     cb.entries = br.read_bits(24);
 
+    // entries/dimensions come straight from the bitstream; a forged header
+    // (entries up to 16M, dimensions up to 64K) would request a multi-gigabyte
+    // allocation. Each entry consumes at least one more bit, so it cannot
+    // exceed the bits left in the stream.
+    if (cb.entries > br.bits_remaining()) {
+        return false;
+    }
     cb.lengths.resize(cb.entries, 0);
 
     bool ordered = br.read_flag();
