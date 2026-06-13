@@ -92,7 +92,12 @@ void RenderThreadPool::worker_loop() {
             active_tasks_.fetch_add(1);
         }
         task();
-        active_tasks_.fetch_sub(1);
+        // Decrement under the mutex so wait_idle() cannot miss the wakeup
+        // between the decrement and the notify (lost-wakeup hang).
+        {
+            std::lock_guard lock(mutex_);
+            active_tasks_.fetch_sub(1);
+        }
         idle_cv_.notify_all();
     }
 }

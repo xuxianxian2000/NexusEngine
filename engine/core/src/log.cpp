@@ -30,8 +30,13 @@ void Log::init() {
 }
 
 void Log::shutdown() {
-    s_engine_logger->info("NexusEngine logging shutdown");
+    if (s_engine_logger) {
+        s_engine_logger->info("NexusEngine logging shutdown");
+    }
     spdlog::shutdown();
+    // Drop the dangling handles so a later NX_* / double shutdown is safe.
+    s_engine_logger.reset();
+    s_app_logger.reset();
 }
 
 } // namespace nexus

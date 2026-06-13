@@ -7,6 +7,15 @@ void MemoryTracker::record_alloc(void* ptr, std::size_t size, const std::string&
     std::lock_guard lock(mutex_);
 
     auto key = reinterpret_cast<uintptr_t>(ptr);
+    // If this address is already tracked (address reuse without a recorded
+    // free, or a double-record), undo the previous record's accounting first so
+    // current_bytes is not permanently inflated.
+    if (auto existing = live_.find(key); existing != live_.end()) {
+        auto prev = tag_stats_.find(existing->second.tag);
+        if (prev != tag_stats_.end()) {
+            prev->second.current_bytes -= existing->second.size;
+        }
+    }
     live_[key] = AllocationRecord{ptr, size, tag};
 
     auto& s = tag_stats_[tag];

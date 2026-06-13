@@ -2,6 +2,7 @@
 
 #include "nexus/core/types.h"
 
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -20,15 +21,17 @@ public:
 
     StringId(std::string_view str)
         : hash_(fnv1a_(str)) {
-        // Intern the string in the global pool.
-        auto& pool = pool_();
-        pool.emplace(hash_, std::string(str));
+        // Intern the string in the global pool. StringIds are created from many
+        // threads (job system, asset loading), so the pool must be guarded.
+        std::lock_guard<std::mutex> lock(mutex_());
+        pool_().emplace(hash_, std::string(str));
     }
 
     u64 hash() const { return hash_; }
 
     const char* c_str() const {
         if (hash_ == 0) return "";
+        std::lock_guard<std::mutex> lock(mutex_());
         auto& pool = pool_();
         auto it = pool.find(hash_);
         if (it != pool.end()) return it->second.c_str();
@@ -51,6 +54,14 @@ private:
 
     static std::unordered_map<u64, std::string>& pool_() {
         static std::unordered_map<u64, std::string> instance;
+        return instance;
+    }
+
+    // Guards pool_(). Pointers/references to the pooled std::strings stay valid
+    // across rehashes (node-based container) and entries are never erased, so
+    // c_str() may safely return into the pool after releasing the lock.
+    static std::mutex& mutex_() {
+        static std::mutex instance;
         return instance;
     }
 

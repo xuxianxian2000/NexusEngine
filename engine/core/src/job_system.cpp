@@ -46,7 +46,15 @@ void JobSystem::worker_loop() {
 
         task();
 
-        if (--pending_ == 0) {
+        // Decrement under the mutex so wait_idle() cannot evaluate its predicate
+        // and start waiting in the window between the decrement and the notify
+        // (which would lose the wakeup and hang forever).
+        bool became_idle;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            became_idle = (--pending_ == 0);
+        }
+        if (became_idle) {
             idle_condition_.notify_all();
         }
     }

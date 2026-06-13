@@ -231,7 +231,11 @@ template <typename T>
 class RingBuffer {
 public:
     explicit RingBuffer(std::size_t capacity)
-        : buffer_(capacity), capacity_(capacity) {}
+        : buffer_(capacity == 0 ? 1 : capacity), capacity_(capacity == 0 ? 1 : capacity) {
+        // A zero capacity would make every push/pop compute `% 0` (UB) and index
+        // an empty buffer; clamp to at least one slot.
+        NEXUS_ASSERT(capacity > 0, "RingBuffer capacity must be non-zero");
+    }
 
     void push(T value) {
         buffer_[tail_] = std::move(value);
