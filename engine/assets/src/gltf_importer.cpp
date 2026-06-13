@@ -283,10 +283,13 @@ std::vector<float> read_accessor_floats(const GltfScene& scene, u32 accessor_ind
     std::vector<float> result(static_cast<size_t>(acc.count) * comp_count);
 
     for (u32 i = 0; i < acc.count; ++i) {
-        u32 offset = bv.byte_offset + acc.byte_offset + i * stride;
+        // Compute offsets in size_t: u32 arithmetic on attacker-controlled
+        // byte_offset/stride can wrap and slip past the bounds check below.
+        size_t offset = static_cast<size_t>(bv.byte_offset) + acc.byte_offset
+                      + static_cast<size_t>(i) * stride;
         for (u32 c = 0; c < comp_count; ++c) {
-            u32 byte_pos = offset + c * comp_sz;
-            if (byte_pos + comp_sz > static_cast<u32>(buf.size())) {
+            size_t byte_pos = offset + static_cast<size_t>(c) * comp_sz;
+            if (byte_pos + comp_sz > buf.size()) {
                 result[static_cast<size_t>(i) * comp_count + c] = 0.0f;
                 continue;
             }
@@ -320,8 +323,9 @@ std::vector<u32> read_accessor_indices(const GltfScene& scene, u32 accessor_inde
 
     std::vector<u32> result(acc.count);
     for (u32 i = 0; i < acc.count; ++i) {
-        u32 offset = bv.byte_offset + acc.byte_offset + i * stride;
-        if (offset + comp_sz > static_cast<u32>(buf.size())) { result[i] = 0; continue; }
+        size_t offset = static_cast<size_t>(bv.byte_offset) + acc.byte_offset
+                      + static_cast<size_t>(i) * stride;
+        if (offset + comp_sz > buf.size()) { result[i] = 0; continue; }
         const u8* ptr = buf.data() + offset;
         switch (acc.component_type) {
             case 5121: result[i] = static_cast<u32>(*ptr); break;

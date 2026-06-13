@@ -135,6 +135,15 @@ static std::shared_ptr<TextureData> decode_tga(const std::vector<u8>& raw,
         NX_ERROR("TextureImporter: TGA has zero dimensions in '{}'", filename);
         return nullptr;
     }
+    // Reject absurd dimensions before reserving, so a forged header cannot
+    // trigger a multi-gigabyte allocation (the decode buffer is reserved up
+    // front, before any input-size validation).
+    constexpr u32 MAX_TGA_DIM = 16384;
+    if (width > MAX_TGA_DIM || height > MAX_TGA_DIM) {
+        NX_ERROR("TextureImporter: TGA dimensions {}x{} exceed maximum {} in '{}'",
+                 width, height, MAX_TGA_DIM, filename);
+        return nullptr;
+    }
     if (bpp != 24 && bpp != 32) {
         NX_ERROR("TextureImporter: only 24/32-bit TGA supported, got {}bpp in '{}'", bpp, filename);
         return nullptr;
@@ -573,10 +582,15 @@ std::shared_ptr<AssetData> MeshImporter::import(const std::string& path,
                 NX_ERROR("MeshImporter: invalid GLB magic");
                 return nullptr;
             }
-            // JSON chunk
+            // JSON chunk. Chunk lengths come from an untrusted file, so validate
+            // them against the bytes actually remaining before allocating.
             u32 json_len, json_type;
             file.read(reinterpret_cast<char*>(&json_len), 4);
             file.read(reinterpret_cast<char*>(&json_type), 4);
+            if (json_len > file_size - static_cast<size_t>(file.tellg())) {
+                NX_ERROR("MeshImporter: GLB JSON chunk length {} exceeds file size", json_len);
+                return nullptr;
+            }
             json_str.resize(json_len);
             file.read(json_str.data(), json_len);
             // BIN chunk
@@ -584,6 +598,10 @@ std::shared_ptr<AssetData> MeshImporter::import(const std::string& path,
                 u32 bin_len, bin_type;
                 file.read(reinterpret_cast<char*>(&bin_len), 4);
                 file.read(reinterpret_cast<char*>(&bin_type), 4);
+                if (bin_len > file_size - static_cast<size_t>(file.tellg())) {
+                    NX_ERROR("MeshImporter: GLB BIN chunk length {} exceeds file size", bin_len);
+                    return nullptr;
+                }
                 glb_bin.resize(bin_len);
                 file.read(reinterpret_cast<char*>(glb_bin.data()), bin_len);
             }

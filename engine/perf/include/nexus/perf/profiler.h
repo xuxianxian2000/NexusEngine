@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -63,8 +64,10 @@ public:
     /// Access the completed frame history (ring buffer, most recent last).
     [[nodiscard]] const std::vector<FrameProfile>& history() const { return history_; }
 
-    /// Most recent completed frame.
-    [[nodiscard]] const FrameProfile* last_frame() const;
+    /// Most recent completed frame, copied under the lock (empty if none).
+    /// Returns by value so the result can't dangle if end_frame() recycles the
+    /// history buffer on another thread.
+    [[nodiscard]] std::optional<FrameProfile> last_frame() const;
 
     /// Average CPU frame time over the history buffer (microseconds).
     [[nodiscard]] f64 average_cpu_us() const;

@@ -258,6 +258,11 @@ bool AssetPackage::write_toc() {
 }
 
 bool AssetPackage::read_toc() {
+    // Determine the file size up front so untrusted TOC fields can be validated
+    // against it before they drive any allocation.
+    stream_.seekg(0, std::ios::end);
+    const auto file_size = static_cast<u64>(stream_.tellg());
+
     // Read header
     stream_.seekg(0);
     PackageHeader header;
@@ -273,6 +278,18 @@ bool AssetPackage::read_toc() {
     }
 
     // Read TOC
+    if (header.toc_offset > file_size) {
+        NX_ERROR("AssetPackage: TOC offset {} beyond file size {}", header.toc_offset, file_size);
+        return false;
+    }
+    // Each entry needs at least one length field plus the fixed-size fields, so
+    // entry_count can never exceed the bytes available for the TOC.
+    const u64 toc_bytes = file_size - header.toc_offset;
+    if (header.entry_count > toc_bytes / sizeof(u32)) {
+        NX_ERROR("AssetPackage: entry_count {} implausible for {} TOC bytes",
+                 header.entry_count, toc_bytes);
+        return false;
+    }
     stream_.seekg(static_cast<std::streamoff>(header.toc_offset));
 
     entries_.clear();
@@ -284,6 +301,10 @@ bool AssetPackage::read_toc() {
 
         u32 path_len = 0;
         stream_.read(reinterpret_cast<char*>(&path_len), sizeof(path_len));
+        if (!stream_.good() || path_len > file_size - static_cast<u64>(stream_.tellg())) {
+            NX_ERROR("AssetPackage: TOC entry path length {} exceeds remaining file", path_len);
+            return false;
+        }
         entry.path.resize(path_len);
         stream_.read(entry.path.data(), path_len);
 

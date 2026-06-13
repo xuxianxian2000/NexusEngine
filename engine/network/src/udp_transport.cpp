@@ -476,9 +476,13 @@ void UdpTransport::retransmit_reliable() {
 u64 UdpTransport::make_peer_key(const Address& addr) {
     // Pack IPv4 address (as 32-bit integer) and port into a 64-bit key
     struct in_addr in{};
-    inet_pton(AF_INET, addr.host.c_str(), &in);
+    if (inet_pton(AF_INET, addr.host.c_str(), &in) != 1) {
+        return 0; // malformed host
+    }
     u32 ip = in.s_addr; // Already in network byte order
-    return (static_cast<u64>(ip) << 16) | static_cast<u64>(addr.port);
+    // Shift the full 32-bit IP into the high word so distinct addresses do not
+    // collide (a 16-bit shift discarded the top 16 bits of the IP).
+    return (static_cast<u64>(ip) << 32) | static_cast<u64>(addr.port);
 }
 
 UdpTransport::RemotePeer* UdpTransport::find_peer(u64 key) {

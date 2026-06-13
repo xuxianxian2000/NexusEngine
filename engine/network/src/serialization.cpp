@@ -188,7 +188,9 @@ std::string BitReader::read_string() {
     if (error_) return "";
 
     std::string result;
-    result.reserve(len);
+    // Only reserve what the buffer could actually contain, so a forged length
+    // can't trigger a huge allocation (the per-byte loop still guards reads).
+    result.reserve(std::min(len, remaining_bits() / 8));
     for (u32 i = 0; i < len; i++) {
         result.push_back(static_cast<char>(read_u8()));
         if (error_) return "";
@@ -198,7 +200,7 @@ std::string BitReader::read_string() {
 
 std::vector<u8> BitReader::read_bytes(u32 size) {
     std::vector<u8> result;
-    result.reserve(size);
+    result.reserve(std::min(size, remaining_bits() / 8));
     for (u32 i = 0; i < size; i++) {
         result.push_back(read_u8());
         if (error_) return {};

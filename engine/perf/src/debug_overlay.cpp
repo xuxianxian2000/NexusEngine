@@ -30,7 +30,6 @@ void DebugOverlay::render(int screen_width, int screen_height) {
     renderer_->begin(screen_camera_);
 
     // Collect stats to display.
-    const auto* last = profiler_->last_frame();
     f64 avg_cpu_us   = profiler_->average_cpu_us();
     f64 fps          = (avg_cpu_us > 0.0) ? 1'000'000.0 / avg_cpu_us : 0.0;
     f64 frame_ms     = avg_cpu_us / 1'000.0;

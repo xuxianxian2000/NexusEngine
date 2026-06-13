@@ -1,5 +1,6 @@
 #include "nexus/net/prediction.h"
 #include <algorithm>
+#include <cstring>
 
 namespace nexus::net {
 
@@ -110,11 +111,14 @@ std::vector<u8> InterpolationBuffer::sample(f32 render_time) const {
                 // Treat data as array of floats if size is aligned, otherwise byte lerp
                 if (from.state.size() % sizeof(float) == 0) {
                     size_t count = from.state.size() / sizeof(float);
-                    const float* a = reinterpret_cast<const float*>(from.state.data());
-                    const float* b = reinterpret_cast<const float*>(to.state.data());
-                    float* out = reinterpret_cast<float*>(result.data());
+                    // memcpy in/out of float temporaries: the u8 buffers carry no
+                    // alignment guarantee, so reinterpret_cast'ing to float* is UB.
                     for (size_t j = 0; j < count; ++j) {
-                        out[j] = a[j] + (b[j] - a[j]) * t;
+                        float a, b;
+                        std::memcpy(&a, from.state.data() + j * sizeof(float), sizeof(float));
+                        std::memcpy(&b, to.state.data() + j * sizeof(float), sizeof(float));
+                        float r = a + (b - a) * t;
+                        std::memcpy(result.data() + j * sizeof(float), &r, sizeof(float));
                     }
                 } else {
                     for (size_t j = 0; j < result.size(); ++j) {

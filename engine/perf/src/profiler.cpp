@@ -80,10 +80,10 @@ void Profiler::record_gpu_time(const std::string& name, f64 duration_us) {
     current_.gpu_timestamps.push_back({name, duration_us});
 }
 
-const FrameProfile* Profiler::last_frame() const {
+std::optional<FrameProfile> Profiler::last_frame() const {
     std::lock_guard lock(mutex_);
-    if (history_.empty()) return nullptr;
-    return &history_.back();
+    if (history_.empty()) return std::nullopt;
+    return history_.back();
 }
 
 f64 Profiler::average_cpu_us() const {
