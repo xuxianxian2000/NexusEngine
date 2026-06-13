@@ -1,5 +1,6 @@
 add_library(nexus-core STATIC
     src/log.cpp
+    src/memory.cpp
     src/timer.cpp
     src/event_bus.cpp
     src/vfs.cpp
