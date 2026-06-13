@@ -131,6 +131,15 @@ inline bool input_vec2(const char* label, Vec2* v) {
 #endif
 }
 
+inline bool input_vec4(const char* label, Vec4* v) {
+#ifdef NEXUS_HAS_IMGUI
+    return ImGui::DragFloat4(label, &v->x, 0.1f);
+#else
+    (void)label; (void)v;
+    return false;
+#endif
+}
+
 inline bool input_color4(const char* label, Vec4* v) {
 #ifdef NEXUS_HAS_IMGUI
     return ImGui::ColorEdit4(label, &v->x);

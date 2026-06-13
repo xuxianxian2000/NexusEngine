@@ -11,6 +11,7 @@ std::array<bool, static_cast<size_t>(MouseButton::MaxButtons)> Input::s_prev_but
 Vec2 Input::s_mouse_pos{0.0f};
 Vec2 Input::s_prev_mouse_pos{0.0f};
 float Input::s_scroll_delta = 0.0f;
+float Input::s_scroll_accum = 0.0f;
 
 void Input::init(GLFWwindow* window) {
     s_window = window;
@@ -24,9 +25,18 @@ void Input::update() {
     s_prev_keys = s_keys;
     s_prev_buttons = s_buttons;
     s_prev_mouse_pos = s_mouse_pos;
-    s_scroll_delta = 0.0f;
+    // Latch the scroll accumulated since the previous update (poll_events fires
+    // the scroll callback before update() runs), then clear the accumulator.
+    s_scroll_delta = s_scroll_accum;
+    s_scroll_accum = 0.0f;
 
-    for (int i = 0; i < static_cast<int>(Key::MaxKeys); ++i) {
+    // GLFW only accepts key codes up to GLFW_KEY_LAST; querying the rest of the
+    // 512-slot array would raise GLFW_INVALID_ENUM every frame.
+    constexpr int kMaxKey =
+        (static_cast<int>(Key::MaxKeys) - 1 < GLFW_KEY_LAST)
+            ? static_cast<int>(Key::MaxKeys) - 1
+            : GLFW_KEY_LAST;
+    for (int i = 0; i <= kMaxKey; ++i) {
         s_keys[static_cast<size_t>(i)] = glfwGetKey(s_window, i) == GLFW_PRESS;
     }
 
@@ -50,5 +60,6 @@ bool Input::mouse_released(MouseButton btn) { return !s_buttons[static_cast<size
 Vec2 Input::mouse_position() { return s_mouse_pos; }
 Vec2 Input::mouse_delta()    { return s_mouse_pos - s_prev_mouse_pos; }
 float Input::scroll_delta()  { return s_scroll_delta; }
+void Input::on_scroll(double yoffset) { s_scroll_accum += static_cast<float>(yoffset); }
 
 } // namespace nexus

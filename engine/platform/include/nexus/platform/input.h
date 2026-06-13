@@ -49,6 +49,10 @@ public:
     [[nodiscard]] static Vec2 mouse_delta();
     [[nodiscard]] static float scroll_delta();
 
+    /// Feed a scroll event (called from the windowing layer's scroll callback).
+    /// Accumulated until the next update() latches it into scroll_delta().
+    static void on_scroll(double yoffset);
+
 private:
     static GLFWwindow* s_window;
     static std::array<bool, static_cast<size_t>(Key::MaxKeys)> s_keys;
@@ -57,7 +61,8 @@ private:
     static std::array<bool, static_cast<size_t>(MouseButton::MaxButtons)> s_prev_buttons;
     static Vec2 s_mouse_pos;
     static Vec2 s_prev_mouse_pos;
-    static float s_scroll_delta;
+    static float s_scroll_delta; // value visible this frame
+    static float s_scroll_accum; // accumulated by on_scroll between updates
 };
 
 } // namespace nexus

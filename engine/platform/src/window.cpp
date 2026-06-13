@@ -1,4 +1,5 @@
 #include "nexus/platform/window.h"
+#include "nexus/platform/input.h"
 #include "nexus/core/log.h"
 
 #include <GLFW/glfw3.h>
@@ -161,6 +162,7 @@ void Window::setup_callbacks() {
 
     glfwSetScrollCallback(window_, [](GLFWwindow* w, double xoffset, double yoffset) {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+        Input::on_scroll(yoffset);
         self->events_.publish(MouseScrollEvent{xoffset, yoffset});
     });
 }

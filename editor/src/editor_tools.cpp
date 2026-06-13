@@ -104,12 +104,15 @@ void TilemapEditorPanel::paint_at(u32 x, u32 y) {
 
     i32 tile_to_paint = (brush_mode_ == TilemapBrushMode::Erase) ? -1 : selected_tile_;
 
-    u32 half = brush_size_ / 2;
-    for (u32 dy = 0; dy < brush_size_; ++dy) {
-        for (u32 dx = 0; dx < brush_size_; ++dx) {
-            u32 tx = x + dx - half;
-            u32 ty = y + dy - half;
-            tilemap.set_tile(tx, ty, tile_to_paint);
+    i32 half = static_cast<i32>(brush_size_ / 2);
+    for (i32 dy = 0; dy < static_cast<i32>(brush_size_); ++dy) {
+        for (i32 dx = 0; dx < static_cast<i32>(brush_size_); ++dx) {
+            // Use signed math so a brush centered near the origin doesn't wrap
+            // around to ~4 billion and clip asymmetrically.
+            i32 tx = static_cast<i32>(x) + dx - half;
+            i32 ty = static_cast<i32>(y) + dy - half;
+            if (tx < 0 || ty < 0) continue;
+            tilemap.set_tile(static_cast<u32>(tx), static_cast<u32>(ty), tile_to_paint);
         }
     }
 }
@@ -394,7 +397,7 @@ void MaterialEditorPanel::on_render() {
                 break;
 
             case MaterialProperty::Vec4:
-                if (ui::input_vec3(prop.name.c_str(), &prop.vec3_val)) {
+                if (ui::input_vec4(prop.name.c_str(), &prop.vec4_val)) {
                     modified_ = true;
                 }
                 break;
