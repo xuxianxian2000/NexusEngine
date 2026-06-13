@@ -187,6 +187,9 @@ void main() {
 void CascadedShadowMap::init(rhi::RHI* rhi, const Config& config) {
     rhi_ = rhi;
     config_ = config;
+    // Clamp to the fixed-size arrays' capacity; num_cascades is caller-settable.
+    if (config_.num_cascades < 1) config_.num_cascades = 1;
+    if (config_.num_cascades > MAX_CASCADES) config_.num_cascades = MAX_CASCADES;
     splits_.resize(config_.num_cascades + 1);
 
     for (u32 i = 0; i < config_.num_cascades; ++i) {
@@ -271,6 +274,7 @@ void CascadedShadowMap::end_pass() {
 
 void CascadedShadowMap::compute_cascade_splits(float near, float far) {
     float lambda = config_.cascade_split_lambda;
+    near = std::max(near, 0.001f); // avoid div-by-zero / inf splits on a 0 near clip
     float range = far - near;
     float ratio = far / near;
 

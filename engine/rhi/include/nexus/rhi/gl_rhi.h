@@ -117,6 +117,7 @@ private:
 
     ShaderHandle bound_shader_{INVALID_HANDLE};
     GLenum       bound_primitive_{GL_TRIANGLES};
+    bool         depth_write_{true}; // mirrors the GL depth write mask
 };
 
 } // namespace nexus::rhi

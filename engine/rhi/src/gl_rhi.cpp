@@ -445,6 +445,12 @@ void OpenGLRHI::set_viewport(i32 x, i32 y, i32 w, i32 h) {
 }
 
 void OpenGLRHI::set_scissor(i32 x, i32 y, i32 w, i32 h) {
+    // A non-positive rect disables the scissor test, so a single scissor call
+    // can no longer leak into every subsequent draw.
+    if (w <= 0 || h <= 0) {
+        gl::Disable(GL_SCISSOR_TEST);
+        return;
+    }
     gl::Enable(GL_SCISSOR_TEST);
     gl::Scissor(x, y, w, h);
 }
@@ -452,7 +458,12 @@ void OpenGLRHI::set_scissor(i32 x, i32 y, i32 w, i32 h) {
 void OpenGLRHI::clear(Vec4 color, float depth) {
     gl::ClearColor(color.r, color.g, color.b, color.a);
     gl::ClearDepth(static_cast<GLdouble>(depth));
+    // glClear of the depth buffer is gated by the depth write mask; force it on
+    // so the clear is never silently dropped when the last pipeline left depth
+    // writes disabled, then restore the tracked state.
+    if (!depth_write_) gl::DepthMask(GL_TRUE);
     gl::Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    if (!depth_write_) gl::DepthMask(GL_FALSE);
 }
 
 void OpenGLRHI::bind_pipeline(PipelineHandle handle) {
@@ -471,6 +482,7 @@ void OpenGLRHI::bind_pipeline(PipelineHandle handle) {
     }
 
     gl::DepthMask(pipe.desc.depth_write ? GL_TRUE : GL_FALSE);
+    depth_write_ = pipe.desc.depth_write;
 
     // Cull mode
     if (pipe.desc.cull == CullMode::None) {
@@ -560,6 +572,7 @@ void OpenGLRHI::set_depth_test(bool enabled) {
 
 void OpenGLRHI::set_depth_write(bool enabled) {
     gl::DepthMask(enabled ? GL_TRUE : GL_FALSE);
+    depth_write_ = enabled;
 }
 
 void OpenGLRHI::set_cull_mode(CullMode mode) {

@@ -36,14 +36,16 @@ public:
     }
 
     [[nodiscard]] Vec2 screen_to_world(Vec2 screen_pos, Vec2 screen_size) const {
-        // Normalise screen coords to [0,1]
-        Vec2 ndc = screen_pos / screen_size;
-
-        // Map to projection space (ortho: origin top-left)
-        Vec4 clip{ndc.x * screen_size.x, ndc.y * screen_size.y, 0.0f, 1.0f};
+        // Map pixel coords to normalized device coordinates in [-1, 1].
+        // Screen origin is top-left, so the Y axis is flipped.
+        Vec2 uv = screen_pos / screen_size;
+        Vec4 clip{uv.x * 2.0f - 1.0f, 1.0f - uv.y * 2.0f, 0.0f, 1.0f};
 
         Mat4 inv_vp = glm::inverse(get_view_projection());
         Vec4 world = inv_vp * clip;
+        if (world.w != 0.0f) {
+            world /= world.w;
+        }
         return Vec2(world.x, world.y);
     }
 

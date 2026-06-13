@@ -178,7 +178,7 @@ void DecalSystem::render(rhi::TextureHandle depth_tex, rhi::TextureHandle /*norm
     rhi_->set_uniform_mat4(shader_, "u_InvViewProjection", inv_view_projection);
 
     // Bind depth texture
-    rhi_->bind_texture(0, depth_tex);
+    rhi_->bind_texture(depth_tex, 0);
     rhi_->set_uniform_int(shader_, "u_DepthTex", 0);
 
     // Set screen size (would come from framebuffer, using defaults)
@@ -207,7 +207,7 @@ void DecalSystem::render(rhi::TextureHandle depth_tex, rhi::TextureHandle /*norm
 
         // Bind albedo texture
         if (d.albedo_tex != rhi::INVALID_HANDLE) {
-            rhi_->bind_texture(1, d.albedo_tex);
+            rhi_->bind_texture(d.albedo_tex, 1);
             rhi_->set_uniform_int(shader_, "u_AlbedoTex", 1);
         }
 
@@ -215,7 +215,7 @@ void DecalSystem::render(rhi::TextureHandle depth_tex, rhi::TextureHandle /*norm
         bool has_normal = (d.normal_tex != rhi::INVALID_HANDLE);
         rhi_->set_uniform_int(shader_, "u_HasNormalTex", has_normal ? 1 : 0);
         if (has_normal) {
-            rhi_->bind_texture(2, d.normal_tex);
+            rhi_->bind_texture(d.normal_tex, 2);
             rhi_->set_uniform_int(shader_, "u_NormalTex", 2);
         }
 

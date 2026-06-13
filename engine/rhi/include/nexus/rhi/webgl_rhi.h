@@ -150,6 +150,8 @@ private:
         u32 width{0};
         u32 height{0};
         bool has_depth{false};
+        std::vector<u32> color_textures; // color attachment textures owned by this FBO
+        u32 depth_rb{0};                 // depth/stencil renderbuffer (0 if none)
     };
 
     std::vector<WGLBuffer>      buffers_;

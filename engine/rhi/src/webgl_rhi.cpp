@@ -118,9 +118,14 @@ void WebGLRHI::shutdown() {
         }
     }
     for (u32 i = 1; i < static_cast<u32>(framebuffers_.size()); ++i) {
-        if (framebuffers_[i].alive && framebuffers_[i].fbo) {
-            glDeleteFramebuffers(1, &framebuffers_[i].fbo);
+        auto& fb = framebuffers_[i];
+        if (!fb.alive) continue;
+        if (!fb.color_textures.empty()) {
+            glDeleteTextures(static_cast<GLsizei>(fb.color_textures.size()),
+                             fb.color_textures.data());
         }
+        if (fb.depth_rb) glDeleteRenderbuffers(1, &fb.depth_rb);
+        if (fb.fbo) glDeleteFramebuffers(1, &fb.fbo);
     }
 #endif
 
@@ -362,7 +367,7 @@ FramebufferHandle WebGLRHI::create_framebuffer(const FramebufferDesc& desc) {
     glGenFramebuffers(1, &fb.fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fb.fbo);
 
-    // Create color attachments
+    // Create color attachments (owned by the framebuffer, deleted on destroy).
     for (u32 i = 0; i < static_cast<u32>(desc.color_attachments.size()); ++i) {
         GLuint tex;
         glGenTextures(1, &tex);
@@ -373,6 +378,7 @@ FramebufferHandle WebGLRHI::create_framebuffer(const FramebufferDesc& desc) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i,
                                GL_TEXTURE_2D, tex, 0);
+        fb.color_textures.push_back(static_cast<u32>(tex));
     }
 
     if (desc.has_depth) {
@@ -383,6 +389,7 @@ FramebufferHandle WebGLRHI::create_framebuffer(const FramebufferDesc& desc) {
                               desc.width, desc.height);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                                   GL_RENDERBUFFER, depth_rb);
+        fb.depth_rb = static_cast<u32>(depth_rb);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -395,11 +402,19 @@ FramebufferHandle WebGLRHI::create_framebuffer(const FramebufferDesc& desc) {
 
 void WebGLRHI::destroy_framebuffer(FramebufferHandle handle) {
     if (handle == 0 || handle >= framebuffers_.size() || !framebuffers_[handle].alive) return;
+    auto& fb = framebuffers_[handle];
 #if WEBGL_REAL
-    if (framebuffers_[handle].fbo) glDeleteFramebuffers(1, &framebuffers_[handle].fbo);
+    if (!fb.color_textures.empty()) {
+        glDeleteTextures(static_cast<GLsizei>(fb.color_textures.size()),
+                         fb.color_textures.data());
+    }
+    if (fb.depth_rb) glDeleteRenderbuffers(1, &fb.depth_rb);
+    if (fb.fbo) glDeleteFramebuffers(1, &fb.fbo);
 #endif
-    framebuffers_[handle].alive = false;
-    framebuffers_[handle].fbo = 0;
+    fb.color_textures.clear();
+    fb.depth_rb = 0;
+    fb.alive = false;
+    fb.fbo = 0;
 }
 
 // ── Frame ───────────────────────────────────────────────────────────────────
@@ -425,6 +440,13 @@ void WebGLRHI::set_viewport(i32 x, i32 y, i32 w, i32 h) {
 
 void WebGLRHI::set_scissor(i32 x, i32 y, i32 w, i32 h) {
 #if WEBGL_REAL
+    // Match the desktop GL backend: a non-positive rect disables scissoring,
+    // otherwise enable the test and set the box.
+    if (w <= 0 || h <= 0) {
+        glDisable(GL_SCISSOR_TEST);
+        return;
+    }
+    glEnable(GL_SCISSOR_TEST);
     glScissor(x, y, w, h);
 #else
     (void)x; (void)y; (void)w; (void)h;
@@ -458,12 +480,15 @@ void WebGLRHI::bind_shader(ShaderHandle handle) {
 }
 
 void WebGLRHI::bind_texture(TextureHandle handle, u32 slot) {
-    if (handle == 0 || handle >= textures_.size() || !textures_[handle].alive) return;
+    const bool valid = handle != 0 && handle < textures_.size() && textures_[handle].alive;
 #if WEBGL_REAL
     glActiveTexture(GL_TEXTURE0 + slot);
-    glBindTexture(GL_TEXTURE_2D, textures_[handle].gl_id);
+    // Match the GL/Vulkan backends: an invalid handle unbinds the slot rather
+    // than silently leaving the previously bound texture active.
+    glBindTexture(GL_TEXTURE_2D, valid ? textures_[handle].gl_id : 0);
 #else
     (void)slot;
+    (void)valid;
 #endif
 }
 

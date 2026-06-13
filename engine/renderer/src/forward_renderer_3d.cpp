@@ -183,10 +183,14 @@ void ForwardRenderer3D::init(rhi::RHI* rhi) {
 ForwardRenderer3D::ForwardRenderer3D(ForwardRenderer3D&& other) noexcept
     : rhi_(other.rhi_), shader_(other.shader_), white_texture_(other.white_texture_),
       dir_light_(other.dir_light_), point_lights_(std::move(other.point_lights_)),
-      view_projection_(other.view_projection_), camera_position_(other.camera_position_) {
+      spot_lights_(std::move(other.spot_lights_)),
+      view_projection_(other.view_projection_), camera_position_(other.camera_position_),
+      in_frame_(other.in_frame_), shadow_map_(std::move(other.shadow_map_)) {
+    for (int i = 0; i < 6; ++i) frustum_planes_[i] = other.frustum_planes_[i];
     other.rhi_ = nullptr;
     other.shader_ = rhi::INVALID_HANDLE;
     other.white_texture_ = rhi::INVALID_HANDLE;
+    other.in_frame_ = false;
 }
 
 ForwardRenderer3D& ForwardRenderer3D::operator=(ForwardRenderer3D&& other) noexcept {
@@ -194,8 +198,12 @@ ForwardRenderer3D& ForwardRenderer3D::operator=(ForwardRenderer3D&& other) noexc
         shutdown();
         rhi_ = other.rhi_; shader_ = other.shader_; white_texture_ = other.white_texture_;
         dir_light_ = other.dir_light_; point_lights_ = std::move(other.point_lights_);
+        spot_lights_ = std::move(other.spot_lights_);
         view_projection_ = other.view_projection_; camera_position_ = other.camera_position_;
+        in_frame_ = other.in_frame_; shadow_map_ = std::move(other.shadow_map_);
+        for (int i = 0; i < 6; ++i) frustum_planes_[i] = other.frustum_planes_[i];
         other.rhi_ = nullptr; other.shader_ = rhi::INVALID_HANDLE; other.white_texture_ = rhi::INVALID_HANDLE;
+        other.in_frame_ = false;
     }
     return *this;
 }

@@ -76,6 +76,11 @@ void VulkanRHI::update_buffer(BufferHandle handle,
     if (!buf.alive) return;
     if (size == 0) return;
 
+    // Guard against size_t overflow in offset+size before using it.
+    if (offset > SIZE_MAX - size) {
+        NX_WARN("VulkanRHI: update_buffer ignored — offset+size overflows");
+        return;
+    }
     if (offset + size > buf.data.size()) {
         NX_WARN("VulkanRHI: update_buffer grows buffer from {} to {} bytes",
                 buf.data.size(), offset + size);
@@ -105,6 +110,10 @@ TextureHandle VulkanRHI::create_texture(const TextureDesc& desc) {
         case TextureFormat::RGBA32F:          bpp = 16; break;
         case TextureFormat::Depth32F:         bpp = 4;  break;
         case TextureFormat::Depth24Stencil8:  bpp = 4;  break;
+    }
+    if (bpp == 0) {
+        NX_WARN("VulkanRHI: create_texture received an unsupported format");
+        return INVALID_HANDLE;
     }
 
     size_t total = static_cast<size_t>(desc.width)

@@ -176,7 +176,9 @@ void GPUParticleSystem::simulate_particles(float dt) {
         p.position += p.velocity * dt;
 
         // Interpolate color and size based on life fraction
-        float t = 1.0f - (p.lifetime / p.max_lifetime);  // 0 at birth, 1 at death
+        float t = p.max_lifetime > 0.0f
+                      ? 1.0f - (p.lifetime / p.max_lifetime)  // 0 at birth, 1 at death
+                      : 1.0f;
         t = glm::clamp(t, 0.0f, 1.0f);
         p.color = glm::mix(config_.start_color, config_.end_color, t);
         p.size = glm::mix(config_.start_size, config_.end_size, t);
@@ -242,7 +244,7 @@ void GPUParticleSystem::render(const Mat4& view, const Mat4& projection,
     bool has_tex = (texture_ != rhi::INVALID_HANDLE);
     rhi_->set_uniform_int(shader_, "u_HasTexture", has_tex ? 1 : 0);
     if (has_tex) {
-        rhi_->bind_texture(0, texture_);
+        rhi_->bind_texture(texture_, 0);
         rhi_->set_uniform_int(shader_, "u_Texture", 0);
     }
 
