@@ -77,8 +77,14 @@ void AnimationStateMachine::update(float dt, const Skeleton& skeleton,
         auto* target = find_state(target_name_);
         if (target && target->clip) {
             target_time_ += dt * target->speed;
-            if (target->clip->duration() > 0.0f && target->looping) {
-                target_time_ = std::fmod(target_time_, target->clip->duration());
+            if (target->clip->duration() > 0.0f) {
+                if (target->looping) {
+                    target_time_ = std::fmod(target_time_, target->clip->duration());
+                } else {
+                    // Clamp non-looping clips so a completed transition doesn't
+                    // leave current_time_ past the clip's duration.
+                    target_time_ = std::min(target_time_, target->clip->duration());
+                }
             }
 
             std::vector<BonePose> target_pose = bind_pose;

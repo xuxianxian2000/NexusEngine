@@ -121,7 +121,10 @@ void AnimationClip::blend_additive(const std::vector<BonePose>& base,
         Quat delta_rot = glm::slerp(Quat(1, 0, 0, 0),
                                      additive[i].rotation * glm::inverse(reference[i].rotation),
                                      weight);
-        Vec3 delta_scale = Vec3(1.0f) + (additive[i].scale - reference[i].scale) * weight;
+        // Scale layers multiplicatively: the additive delta is the ratio of the
+        // additive pose to its reference, not their difference.
+        Vec3 ratio = additive[i].scale / glm::max(reference[i].scale, Vec3(1e-6f));
+        Vec3 delta_scale = glm::mix(Vec3(1.0f), ratio, weight);
 
         out[i].position = base[i].position + delta_pos;
         out[i].rotation = delta_rot * base[i].rotation;

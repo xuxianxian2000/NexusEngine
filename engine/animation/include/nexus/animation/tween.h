@@ -3,6 +3,7 @@
 #include "nexus/core/types.h"
 #include "nexus/core/math.h"
 #include <cmath>
+#include <deque>
 #include <functional>
 
 namespace nexus::anim {
@@ -160,7 +161,9 @@ public:
     size_t active_count() const { return tweens_.size(); }
 
 private:
-    std::vector<Tween> tweens_;
+    // deque (not vector) so the reference returned by add() stays valid when
+    // later add() calls grow the container.
+    std::deque<Tween> tweens_;
 };
 
 } // namespace nexus::anim

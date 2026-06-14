@@ -27,6 +27,11 @@ std::vector<BonePose> Skeleton::get_bind_pose() const {
 
 std::vector<Mat4> Skeleton::compute_skin_matrices(const std::vector<BonePose>& local_poses) const {
     size_t count = bones_.size();
+    // Guard against a mismatched pose array (would otherwise read out of bounds).
+    if (local_poses.size() != count) {
+        return std::vector<Mat4>(count, Mat4(1.0f));
+    }
+
     std::vector<Mat4> world_matrices(count, Mat4(1.0f));
     std::vector<Mat4> skin_matrices(count, Mat4(1.0f));
 
@@ -34,7 +39,11 @@ std::vector<Mat4> Skeleton::compute_skin_matrices(const std::vector<BonePose>& l
         Mat4 local = local_poses[i].to_matrix();
 
         if (bones_[i].parent_index >= 0) {
-            world_matrices[i] = world_matrices[static_cast<size_t>(bones_[i].parent_index)] * local;
+            size_t parent = static_cast<size_t>(bones_[i].parent_index);
+            // Parents must precede children so their world matrix is already
+            // computed; a forward reference would multiply by an identity stub.
+            NEXUS_ASSERT(parent < i, "Skeleton bones must be ordered parent-before-child");
+            world_matrices[i] = world_matrices[parent] * local;
         } else {
             world_matrices[i] = local;
         }
