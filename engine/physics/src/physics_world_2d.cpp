@@ -101,12 +101,30 @@ void PhysicsWorld2D::step(float dt, u32 velocity_iterations, u32 /*position_iter
         }
     }
 
-    // Resolve (iterative impulse solver)
+    // Resolve velocities (iterative impulse solver)
     for (u32 iter = 0; iter < velocity_iterations; ++iter) {
         for (auto& pair : contacts_) {
             Body2D* a = get_body(pair.body_a);
             Body2D* b = get_body(pair.body_b);
             if (a && b) resolve_collision(*a, *b, pair.contact);
+        }
+    }
+
+    // Positional (Baumgarte) correction: a single pass after the velocity solve,
+    // using the original penetration depth.
+    {
+        const float percent = 0.8f;
+        const float slop = 0.01f;
+        for (auto& pair : contacts_) {
+            Body2D* a = get_body(pair.body_a);
+            Body2D* b = get_body(pair.body_b);
+            if (!a || !b || a->is_trigger || b->is_trigger) continue;
+            float inv_mass_sum = a->inv_mass + b->inv_mass;
+            if (inv_mass_sum <= 0.0f) continue;
+            Vec2 correction = pair.contact.normal *
+                (std::max(pair.contact.depth - slop, 0.0f) / inv_mass_sum) * percent;
+            a->position -= correction * a->inv_mass;
+            b->position += correction * b->inv_mass;
         }
     }
 
@@ -406,14 +424,8 @@ void PhysicsWorld2D::resolve_collision(Body2D& a, Body2D& b, const Contact2D& co
     float inv_mass_sum = a.inv_mass + b.inv_mass;
     if (inv_mass_sum <= 0.0f) return;
 
-    // Positional correction (Baumgarte stabilization)
-    const float percent = 0.8f;
-    const float slop = 0.01f;
-    Vec2 correction = contact.normal *
-        (std::max(contact.depth - slop, 0.0f) / inv_mass_sum) * percent;
-
-    a.position -= correction * a.inv_mass;
-    b.position += correction * b.inv_mass;
+    // Positional (Baumgarte) correction is applied once after the velocity solve
+    // in step(); doing it here ran it once per velocity iteration and overshot.
 
     // Contact-relative vectors
     Vec2 ra = contact.point - a.position;
@@ -462,12 +474,10 @@ void PhysicsWorld2D::resolve_collision(Body2D& a, Body2D& b, const Contact2D& co
         float jt = -glm::dot(rel_vel, tangent) / (inv_mass_sum + angular_factor_t);
         float mu = std::sqrt(a.friction * b.friction);
 
-        Vec2 friction_impulse;
-        if (std::abs(jt) < j * mu) {
-            friction_impulse = jt * tangent;
-        } else {
-            friction_impulse = -j * mu * tangent;
-        }
+        // Coulomb clamp against the magnitude of the normal impulse; using the
+        // signed j would flip the bound (and inject energy) if j were negative.
+        float jmax = std::abs(j) * mu;
+        Vec2 friction_impulse = std::clamp(jt, -jmax, jmax) * tangent;
 
         a.velocity -= friction_impulse * a.inv_mass;
         b.velocity += friction_impulse * b.inv_mass;

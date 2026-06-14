@@ -130,6 +130,24 @@ void PhysicsWorld3D::step(float dt, u32 iterations) {
         }
     }
 
+    // Positional (Baumgarte) correction: a single pass after the velocity solve,
+    // using the original penetration depth.
+    {
+        const float percent = 0.8f;
+        const float slop = 0.01f;
+        for (auto& pair : contacts_) {
+            Body3D* a = get_body(pair.body_a);
+            Body3D* b = get_body(pair.body_b);
+            if (!a || !b || a->is_trigger || b->is_trigger) continue;
+            float inv_mass_sum = a->inv_mass + b->inv_mass;
+            if (inv_mass_sum <= 0.0f) continue;
+            Vec3 correction = pair.contact.normal *
+                (std::max(pair.contact.depth - slop, 0.0f) / inv_mass_sum) * percent;
+            a->position -= correction * a->inv_mass;
+            b->position += correction * b->inv_mass;
+        }
+    }
+
     update_sleeping(dt);
 
     if (contact_callback_) {
@@ -689,14 +707,8 @@ void PhysicsWorld3D::resolve_collision(Body3D& a, Body3D& b, const Contact3D& co
     float inv_mass_sum = a.inv_mass + b.inv_mass;
     if (inv_mass_sum <= 0.0f) return;
 
-    // Positional correction (Baumgarte stabilization)
-    const float percent = 0.8f;
-    const float slop = 0.01f;
-    Vec3 correction = contact.normal *
-        (std::max(contact.depth - slop, 0.0f) / inv_mass_sum) * percent;
-
-    a.position -= correction * a.inv_mass;
-    b.position += correction * b.inv_mass;
+    // Positional (Baumgarte) correction is applied once after the velocity solve
+    // in step(); doing it here ran it once per velocity iteration and overshot.
 
     // Contact-relative vectors
     Vec3 ra = contact.point - a.position;
@@ -747,12 +759,10 @@ void PhysicsWorld3D::resolve_collision(Body3D& a, Body3D& b, const Contact3D& co
         float jt = -glm::dot(rel_vel, tangent) / (inv_mass_sum + angular_factor_t);
         float mu = std::sqrt(a.friction * b.friction);
 
-        Vec3 friction_impulse;
-        if (std::abs(jt) < j * mu) {
-            friction_impulse = jt * tangent;
-        } else {
-            friction_impulse = -j * mu * tangent;
-        }
+        // Coulomb clamp against the magnitude of the normal impulse; using the
+        // signed j would flip the bound (and inject energy) if j were negative.
+        float jmax = std::abs(j) * mu;
+        Vec3 friction_impulse = std::clamp(jt, -jmax, jmax) * tangent;
 
         a.velocity -= friction_impulse * a.inv_mass;
         b.velocity += friction_impulse * b.inv_mass;

@@ -65,11 +65,14 @@ private:
     i32 cell(float v) const { return static_cast<i32>(std::floor(v * inv_cell_size_)); }
 
     static u64 hash_key(i32 x, i32 y, i32 z) {
-        // Combine three 21-bit signed integers into one 64-bit key
-        u64 ux = static_cast<u64>(static_cast<u32>(x));
-        u64 uy = static_cast<u64>(static_cast<u32>(y));
-        u64 uz = static_cast<u64>(static_cast<u32>(z));
-        return (ux * 73856093ULL) ^ (uy * 19349663ULL) ^ (uz * 83492791ULL);
+        // Losslessly pack three 21-bit cell coordinates so distinct cells never
+        // collide. The previous multiplicative-XOR hash aliased different cells
+        // into the same bucket, inflating the candidate-pair set.
+        constexpr u64 MASK = 0x1FFFFF; // 21 bits
+        u64 ux = static_cast<u64>(static_cast<u32>(x)) & MASK;
+        u64 uy = static_cast<u64>(static_cast<u32>(y)) & MASK;
+        u64 uz = static_cast<u64>(static_cast<u32>(z)) & MASK;
+        return ux | (uy << 21) | (uz << 42);
     }
 
     float cell_size_;
@@ -129,9 +132,11 @@ private:
     i32 cell(float v) const { return static_cast<i32>(std::floor(v * inv_cell_size_)); }
 
     static u64 hash_key(i32 x, i32 y) {
+        // Losslessly pack two 32-bit cell coordinates so distinct cells never
+        // collide (the previous multiplicative-XOR hash aliased cells).
         u64 ux = static_cast<u64>(static_cast<u32>(x));
         u64 uy = static_cast<u64>(static_cast<u32>(y));
-        return (ux * 73856093ULL) ^ (uy * 19349663ULL);
+        return ux | (uy << 32);
     }
 
     float cell_size_;
