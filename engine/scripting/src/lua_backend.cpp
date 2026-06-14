@@ -583,6 +583,12 @@ bool LuaBackend::execute_for(const std::string& var, i32 start, i32 stop,
     constexpr u32 MAX_ITERATIONS = 100000;
     u32 iterations = 0;
 
+    // Preserve any pre-existing global with the loop variable's name so the loop
+    // doesn't clobber and then delete it (this interpreter has a flat scope).
+    auto prior_it = globals_.find(var);
+    const bool had_prior = (prior_it != globals_.end());
+    ScriptValue prior_value = had_prior ? prior_it->second : ScriptValue{};
+
     for (i32 i = start; (step > 0) ? (i <= stop) : (i >= stop); i += step) {
         if (++iterations > MAX_ITERATIONS) {
             set_error("for loop exceeded max iterations", source, line_number);
@@ -595,8 +601,12 @@ bool LuaBackend::execute_for(const std::string& var, i32 start, i32 stop,
         }
     }
 
-    // Remove loop variable after loop
-    globals_.erase(var);
+    // Restore the prior binding, or remove the loop variable if there was none.
+    if (had_prior) {
+        globals_[var] = prior_value;
+    } else {
+        globals_.erase(var);
+    }
     return true;
 }
 
