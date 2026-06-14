@@ -52,9 +52,15 @@ public:
     bool remove(SlotKey key) {
         if (!valid(key)) return false;
         alive_[key.index] = false;
+        --size_;
+        // If the generation counter is exhausted, retire the slot permanently
+        // rather than recycling it: bumping past the max would wrap to a value
+        // an old key already holds, reviving that stale key (ABA).
+        if (generations_[key.index] == std::numeric_limits<u32>::max()) {
+            return true;
+        }
         ++generations_[key.index];
         free_list_.push_back(key.index);
-        --size_;
         return true;
     }
 

@@ -1,4 +1,5 @@
 #include "nexus/core/types.h"
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <unordered_map>
@@ -28,13 +29,27 @@ public:
 
     std::optional<std::string> resolve(const std::string& virtual_path) const {
         std::lock_guard lock(mutex_);
-        for (const auto& [vpath, ppath] : mount_points_) {
-            if (virtual_path.starts_with(vpath)) {
-                auto relative = virtual_path.substr(vpath.size());
-                auto resolved = std::filesystem::path(ppath) / relative;
-                if (std::filesystem::exists(resolved)) {
-                    return resolved.string();
-                }
+
+        // Collect every mount whose virtual path is a prefix of the request at a
+        // path-separator boundary (so "/assets" does not match "/assetsX/..."),
+        // then try them longest-first so the most specific mount wins
+        // deterministically regardless of hash-map iteration order.
+        std::vector<const std::pair<const std::string, std::string>*> candidates;
+        for (const auto& entry : mount_points_) {
+            if (prefix_matches(virtual_path, entry.first)) {
+                candidates.push_back(&entry);
+            }
+        }
+        std::sort(candidates.begin(), candidates.end(),
+                  [](const auto* a, const auto* b) {
+                      return a->first.size() > b->first.size();
+                  });
+
+        for (const auto* entry : candidates) {
+            auto relative = lstrip_separators(virtual_path.substr(entry->first.size()));
+            auto resolved = std::filesystem::path(entry->second) / relative;
+            if (std::filesystem::exists(resolved)) {
+                return resolved.string();
             }
         }
         return std::nullopt;
@@ -67,6 +82,20 @@ public:
 
 private:
     VirtualFileSystem() = default;
+
+    // True if `vpath` is a prefix of `path` ending on a separator boundary.
+    static bool prefix_matches(const std::string& path, const std::string& vpath) {
+        if (!path.starts_with(vpath)) return false;
+        if (path.size() == vpath.size()) return true;              // exact mount
+        if (!vpath.empty() && vpath.back() == '/') return true;    // vpath = ".../"
+        return path[vpath.size()] == '/';                          // next char is a sep
+    }
+
+    static std::string lstrip_separators(std::string s) {
+        std::size_t i = 0;
+        while (i < s.size() && s[i] == '/') ++i;
+        return s.substr(i);
+    }
 
     std::unordered_map<std::string, std::string> mount_points_;
     mutable std::mutex mutex_;
