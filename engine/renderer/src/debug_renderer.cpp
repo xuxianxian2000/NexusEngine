@@ -1,5 +1,6 @@
 #include <nexus/renderer/debug_renderer.h>
 #include <nexus/core/log.h>
+#include <algorithm>
 #include <cmath>
 
 namespace nexus {
@@ -68,9 +69,12 @@ void DebugRenderer::init(rhi::RHI* rhi) {
 
 void DebugRenderer::shutdown() {
     if (!rhi_) return;
-    rhi_->destroy_pipeline(pipeline_);
-    rhi_->destroy_buffer(vbo_);
-    rhi_->destroy_shader(shader_);
+    if (pipeline_ != rhi::INVALID_HANDLE) rhi_->destroy_pipeline(pipeline_);
+    if (vbo_ != rhi::INVALID_HANDLE)      rhi_->destroy_buffer(vbo_);
+    if (shader_ != rhi::INVALID_HANDLE)   rhi_->destroy_shader(shader_);
+    pipeline_ = rhi::INVALID_HANDLE;
+    vbo_      = rhi::INVALID_HANDLE;
+    shader_   = rhi::INVALID_HANDLE;
     rhi_ = nullptr;
 }
 
@@ -137,6 +141,7 @@ void DebugRenderer::draw_aabb(const AABB& aabb, Vec4 color) {
 }
 
 void DebugRenderer::draw_sphere(Vec3 center, float radius, Vec4 color, u32 segments) {
+    if (segments == 0) return; // avoid div-by-zero / degenerate sphere
     float step = math::TWO_PI / static_cast<float>(segments);
 
     // Three perpendicular circles
@@ -159,8 +164,12 @@ void DebugRenderer::draw_sphere(Vec3 center, float radius, Vec4 color, u32 segme
 }
 
 void DebugRenderer::draw_grid(float size, float step, Vec4 color) {
+    // Guard against a zero/negative step (inf or billion-iteration loop, casting
+    // inf to int is UB) and clamp the line count to a sane maximum.
+    if (step <= 0.0f || size <= 0.0f) return;
     float half = size * 0.5f;
     int count = static_cast<int>(size / step);
+    count = std::min(count, 4096);
 
     for (int i = 0; i <= count; ++i) {
         float pos = -half + static_cast<float>(i) * step;

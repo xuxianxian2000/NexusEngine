@@ -7,6 +7,9 @@ namespace nexus {
 void TilemapRenderer::render(BatchRenderer2D& renderer, const Camera2D& camera,
                               Vec2 screen_size, const TilemapData& tilemap) {
     if (!tilemap.tiles || tilemap.width == 0 || tilemap.height == 0) return;
+    // tiles_per_row/col feed integer modulo and 1/x below; a zero would be a
+    // divide-by-zero (UB) and infinite UVs.
+    if (tilemap.tiles_per_row == 0 || tilemap.tiles_per_col == 0) return;
 
     float ts = tilemap.tile_size;
     float inv_zoom = 1.0f / std::max(camera.zoom, 0.001f);

@@ -21,6 +21,11 @@ public:
         Vec4 color;
     };
 
+    DebugRenderer() = default;
+    ~DebugRenderer() { shutdown(); }
+
+    NEXUS_NON_COPYABLE(DebugRenderer)
+
     void init(rhi::RHI* rhi);
     void shutdown();
 

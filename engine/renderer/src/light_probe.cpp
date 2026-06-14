@@ -10,6 +10,12 @@ namespace nexus {
 void LightProbeGrid::init(rhi::RHI* rhi, const Config& config) {
     rhi_ = rhi;
     config_ = config;
+    // resolution is signed; a zero/negative axis would cast to a huge u32 and
+    // request a massive allocation (and underflow the clamps in sample_irradiance).
+    constexpr i32 kMaxAxis = 256;
+    config_.resolution.x = std::clamp(config_.resolution.x, 1, kMaxAxis);
+    config_.resolution.y = std::clamp(config_.resolution.y, 1, kMaxAxis);
+    config_.resolution.z = std::clamp(config_.resolution.z, 1, kMaxAxis);
     generate_probe_positions();
     NX_INFO("LightProbeGrid initialized: {}x{}x{} = {} probes",
             config_.resolution.x, config_.resolution.y, config_.resolution.z,

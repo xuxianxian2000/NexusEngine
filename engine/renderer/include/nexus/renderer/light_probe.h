@@ -93,8 +93,11 @@ public:
     /// Upload SH data to GPU (for shader access).
     void upload_to_gpu();
 
-    /// Access individual probes.
-    const LightProbe& probe(u32 index) const { return probes_[index]; }
+    /// Access individual probes (out-of-range returns a default probe).
+    const LightProbe& probe(u32 index) const {
+        static const LightProbe s_invalid{};
+        return index < probes_.size() ? probes_[index] : s_invalid;
+    }
     u32 probe_count() const { return static_cast<u32>(probes_.size()); }
     const Config& config() const { return config_; }
 

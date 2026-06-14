@@ -390,6 +390,7 @@ void BatchRenderer2D::draw_line(Vec2 start, Vec2 end, Vec4 color, float thicknes
 }
 
 void BatchRenderer2D::draw_circle(Vec2 center, float radius, Vec4 color, i32 segments) {
+    if (segments <= 0) return; // avoid div-by-zero / degenerate circle
     float angle_step = math::TWO_PI / static_cast<float>(segments);
 
     for (i32 i = 0; i < segments; ++i) {

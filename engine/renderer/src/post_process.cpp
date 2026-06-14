@@ -112,13 +112,23 @@ void main() {
 
 void ToneMappingEffect::init(rhi::RHI* rhi, u32 width, u32 height) {
     (void)width; (void)height;
+    rhi_ = rhi;
     shader_ = rhi->create_shader(tonemapping_shaders::VERTEX,
                                   tonemapping_shaders::FRAGMENT);
     pipeline_ = create_fullscreen_pipeline(rhi, shader_);
     quad_vbo_ = create_quad_vbo(rhi);
 }
 
-void ToneMappingEffect::shutdown() {}
+void ToneMappingEffect::shutdown() {
+    if (!rhi_) return;
+    if (shader_ != rhi::INVALID_HANDLE)   rhi_->destroy_shader(shader_);
+    if (pipeline_ != rhi::INVALID_HANDLE) rhi_->destroy_pipeline(pipeline_);
+    if (quad_vbo_ != rhi::INVALID_HANDLE) rhi_->destroy_buffer(quad_vbo_);
+    shader_ = rhi::INVALID_HANDLE;
+    pipeline_ = rhi::INVALID_HANDLE;
+    quad_vbo_ = rhi::INVALID_HANDLE;
+    rhi_ = nullptr;
+}
 
 void ToneMappingEffect::resize(u32 width, u32 height) {
     (void)width; (void)height;
@@ -209,6 +219,7 @@ void main() {
 } // namespace bloom_shaders
 
 void BloomEffect::init(rhi::RHI* rhi, u32 width, u32 height) {
+    rhi_ = rhi;
     width_ = width / 2;
     height_ = height / 2;
 
@@ -237,7 +248,24 @@ void BloomEffect::init(rhi::RHI* rhi, u32 width, u32 height) {
     pong_tex_ = rhi->create_texture(tex_desc);
 }
 
-void BloomEffect::shutdown() {}
+void BloomEffect::shutdown() {
+    if (!rhi_) return;
+    if (bright_shader_ != rhi::INVALID_HANDLE)  rhi_->destroy_shader(bright_shader_);
+    if (blur_shader_ != rhi::INVALID_HANDLE)    rhi_->destroy_shader(blur_shader_);
+    if (combine_shader_ != rhi::INVALID_HANDLE) rhi_->destroy_shader(combine_shader_);
+    if (pipeline_ != rhi::INVALID_HANDLE)       rhi_->destroy_pipeline(pipeline_);
+    if (quad_vbo_ != rhi::INVALID_HANDLE)       rhi_->destroy_buffer(quad_vbo_);
+    if (ping_fb_ != rhi::INVALID_HANDLE)        rhi_->destroy_framebuffer(ping_fb_);
+    if (pong_fb_ != rhi::INVALID_HANDLE)        rhi_->destroy_framebuffer(pong_fb_);
+    if (ping_tex_ != rhi::INVALID_HANDLE)       rhi_->destroy_texture(ping_tex_);
+    if (pong_tex_ != rhi::INVALID_HANDLE)       rhi_->destroy_texture(pong_tex_);
+    bright_shader_ = blur_shader_ = combine_shader_ = rhi::INVALID_HANDLE;
+    pipeline_ = rhi::INVALID_HANDLE;
+    quad_vbo_ = rhi::INVALID_HANDLE;
+    ping_fb_ = pong_fb_ = rhi::INVALID_HANDLE;
+    ping_tex_ = pong_tex_ = rhi::INVALID_HANDLE;
+    rhi_ = nullptr;
+}
 
 void BloomEffect::resize(u32 width, u32 height) {
     width_ = width / 2;
@@ -365,6 +393,7 @@ void main() {
 } // namespace fxaa_shaders
 
 void FXAAEffect::init(rhi::RHI* rhi, u32 width, u32 height) {
+    rhi_ = rhi;
     width_ = width;
     height_ = height;
     shader_ = rhi->create_shader(fxaa_shaders::VERTEX, fxaa_shaders::FRAGMENT);
@@ -372,7 +401,16 @@ void FXAAEffect::init(rhi::RHI* rhi, u32 width, u32 height) {
     quad_vbo_ = create_quad_vbo(rhi);
 }
 
-void FXAAEffect::shutdown() {}
+void FXAAEffect::shutdown() {
+    if (!rhi_) return;
+    if (shader_ != rhi::INVALID_HANDLE)   rhi_->destroy_shader(shader_);
+    if (pipeline_ != rhi::INVALID_HANDLE) rhi_->destroy_pipeline(pipeline_);
+    if (quad_vbo_ != rhi::INVALID_HANDLE) rhi_->destroy_buffer(quad_vbo_);
+    shader_ = rhi::INVALID_HANDLE;
+    pipeline_ = rhi::INVALID_HANDLE;
+    quad_vbo_ = rhi::INVALID_HANDLE;
+    rhi_ = nullptr;
+}
 
 void FXAAEffect::resize(u32 width, u32 height) {
     width_ = width;
@@ -433,12 +471,22 @@ void main() {
 
 void VignetteEffect::init(rhi::RHI* rhi, u32 width, u32 height) {
     (void)width; (void)height;
+    rhi_ = rhi;
     shader_ = rhi->create_shader(vignette_shaders::VERTEX, vignette_shaders::FRAGMENT);
     pipeline_ = create_fullscreen_pipeline(rhi, shader_);
     quad_vbo_ = create_quad_vbo(rhi);
 }
 
-void VignetteEffect::shutdown() {}
+void VignetteEffect::shutdown() {
+    if (!rhi_) return;
+    if (shader_ != rhi::INVALID_HANDLE)   rhi_->destroy_shader(shader_);
+    if (pipeline_ != rhi::INVALID_HANDLE) rhi_->destroy_pipeline(pipeline_);
+    if (quad_vbo_ != rhi::INVALID_HANDLE) rhi_->destroy_buffer(quad_vbo_);
+    shader_ = rhi::INVALID_HANDLE;
+    pipeline_ = rhi::INVALID_HANDLE;
+    quad_vbo_ = rhi::INVALID_HANDLE;
+    rhi_ = nullptr;
+}
 
 void VignetteEffect::resize(u32 width, u32 height) {
     (void)width; (void)height;

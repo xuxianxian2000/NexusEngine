@@ -29,6 +29,10 @@ public:
     virtual const std::string& name() const = 0;
 
     bool enabled{true};
+
+protected:
+    // Set by each effect's init(); used by shutdown() to free GPU resources.
+    rhi::RHI* rhi_{nullptr};
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
