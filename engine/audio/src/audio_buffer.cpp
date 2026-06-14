@@ -593,6 +593,10 @@ static bool decode_audio_packet(VorbisDecoder& dec, const u8* data, size_t size)
     // Packet type (must be 0 for audio)
     if (br.read_bits(1) != 0) return false;
 
+    // No modes means setup-header parsing failed; bail rather than computing
+    // ilog(0u - 1) = ilog(0xFFFFFFFF) = 32 and garbling the bitstream.
+    if (dec.modes.empty()) return false;
+
     u32 mode_bits = ilog(static_cast<u32>(dec.modes.size()) - 1);
     u32 mode_number = br.read_bits(mode_bits);
     if (mode_number >= dec.modes.size()) return false;

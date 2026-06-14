@@ -133,12 +133,15 @@ GizmoAxis Gizmo::hit_test(const Camera3D& camera, Vec3 gizmo_position,
     float dy = test_axis(Vec3(0, 1, 0));
     float dz = test_axis(Vec3(0, 0, 1));
 
-    float min_dist = std::min({dx, dy, dz});
-    if (min_dist > threshold) return GizmoAxis::None;
+    // Pick the nearest axis directly instead of re-comparing with float equality
+    // against the min (fragile, and a tie/NaN would fall through to Z).
+    GizmoAxis best = GizmoAxis::X;
+    float min_dist = dx;
+    if (dy < min_dist) { min_dist = dy; best = GizmoAxis::Y; }
+    if (dz < min_dist) { min_dist = dz; best = GizmoAxis::Z; }
 
-    if (min_dist == dx) return GizmoAxis::X;
-    if (min_dist == dy) return GizmoAxis::Y;
-    return GizmoAxis::Z;
+    if (min_dist > threshold) return GizmoAxis::None;
+    return best;
 }
 
 void Gizmo::begin_drag(GizmoAxis axis, Vec3 start_position, Vec2 mouse_pos) {

@@ -453,9 +453,12 @@ void ConsolePanel::add_message(const std::string& text, LogLevel level) {
     msg.level = level;
     messages_.push_back(std::move(msg));
 
-    // Prune if exceeding max
-    while (messages_.size() > max_messages_) {
-        messages_.erase(messages_.begin());
+    // Prune if exceeding max — erase the whole overflow range in one shift
+    // rather than one element at a time (which is O(n) per removed message).
+    if (messages_.size() > max_messages_) {
+        messages_.erase(messages_.begin(),
+                        messages_.begin() +
+                            static_cast<std::ptrdiff_t>(messages_.size() - max_messages_));
     }
 }
 
